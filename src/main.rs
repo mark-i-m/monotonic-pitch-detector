@@ -129,7 +129,33 @@ fn main() {
         let freq = compute_monotonic_freq(&buffer[(i * CHUNK_SIZE)..((i + 1) * CHUNK_SIZE)]);
         let note = hz_to_note(freq);
         println!("Estimated freq: {:0.0} Hz, {:?}", freq, note);
+        fft_stuff(&buffer[(i * CHUNK_SIZE)..((i + 1) * CHUNK_SIZE)]);
     }
+}
+
+fn fft_stuff(buffer: &[i16]) {
+    use rustfft::{num_complex::Complex, num_traits::Zero, FFTplanner};
+
+    // Play around with FFT...
+    let mut buffer: Vec<_> = buffer
+        .iter()
+        .map(|re| Complex::new(*re as f32, 0.0))
+        .collect();
+    let mut fft_buffer = vec![Complex::zero(); buffer.len()];
+    let mut planner = FFTplanner::new(false);
+    let fft = planner.plan_fft(buffer.len());
+    fft.process(&mut buffer, &mut fft_buffer);
+
+    let len = fft_buffer.len();
+    let (i, _) = fft_buffer
+        .into_iter()
+        .take(len / 2)
+        .enumerate()
+        .map(|(i, v)| (i, v.norm().log10() * 20.0))
+        .max_by_key(|(_, v)| *v as usize)
+        .unwrap();
+    let freq = i as f64 * (SAMPLE_RATE as f64) / (len as f64);
+    println!("                {} Hz, {:?}", freq, hz_to_note(freq));
 }
 
 fn hz_to_note(freq: f64) -> Note {
